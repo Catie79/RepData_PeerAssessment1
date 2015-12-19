@@ -1,25 +1,140 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Reproducible Research: Peer Assessment One"
+author: "Catherine Petersen"
+date: "Monday, December 14, 2015"
+output: html_document
 ---
 
+This is an analysis of movement patterns by five minute intervals over X days
 
-## Loading and preprocessing the data
+The data is loaded, checked, and modified as needed for the analysis
+```{r}
+
+##Load the data
+activity <- read.csv("activity.csv")
+
+##take a look around
+summary (activity)
+
+##get date formatted correctly
+activity$date <- as.Date(activity$date)
+```
 
 
+The first descriptive statistics include the average number of steps per day
 
-## What is mean total number of steps taken per day?
+```{r}
+##find the average number of steps per day
+temp <- aggregate(steps ~ date,sum,data = activity)
+
+##histogram of total number of steps per day
+hist(temp$steps)
+
+##mean and median of steps per day
+mean(temp$steps)
+median(temp$steps)
+```
+
+A time series plot shows the pattern seen in activity throughout the day.
+
+```{r}
+##time series plot for daily activity
+library(ggplot2)
+ggplot(activity, aes(interval,steps)) + geom_point() + geom_smooth()
+```
+
+A spike is seen early in the day and steps drop off significantly on either side of midnight.  The average steps per interval reveals what part of the day is usually the most active.
+
+```{r}
+##find the average number of steps per interval
+temp2 <- aggregate(steps ~ interval, mean, data = activity)
+
+#find the interval that has the highest average steps
+maxi <- max(temp2$steps)
+temp3 <- subset(temp2, steps == maxi)
+temp3[1]$interval
+```
+
+The peak of activity is at 8:35am.  
+
+The data has missing values for steps which can skew the results.  
+
+```{r}
+##count of missing values
+sum(is.na(activity$steps))
+```
+
+The missing values are replaced with the mean number of steps for that interval across the data set.
+
+```{r}
+##replace missing values with average steps for that interval
+activity2 <- activity
+missingtemp <- subset(activity2, is.na(steps))
+finetemp <- subset(activity2, !(is.na(steps)))
+
+i <- 1
+x <- 1
+n <- nrow(activity2)
+m <- nrow(temp2)
+
+while (i <= n){
+  while (x <= m){
+  track <- which(missingtemp$interval == temp2$interval[x])
+  missingtemp$steps[track]<- temp2$steps[x]
+x <- x + 1
+}
+i <- i + 1
+}
+
+activity2 <- rbind(missingtemp, finetemp)
 
 
+#validate there are no more missing values
+sum(is.na(activity2$steps))
+``` 
 
-## What is the average daily activity pattern?
+With the NAs removed, the analysis can be rerun to see where there are differences.
+
+```{r}
+##find the average number of steps per day with NAs removed
+newtemp <- aggregate(steps ~ date,sum,data = activity2)
+
+##histogram of total number of steps per day with NAs removed
+hist(newtemp$steps)
+
+##mean and median of steps per day with NAs removed
+mean(newtemp$steps)
+median(newtemp$steps)
+```
+
+The replaced missing values had a small effect on the mean and median values for steps.
+
+Activity patterns are often different between the weekend and weekdays.  Adding a feature for the type of day allows for analysis of patterns at different points in the week.
 
 
+```{r}
+##identify weekdays and weekends
+activity2$daytype <- weekdays(activity2$date)
 
-## Imputing missing values
+i <- 1
+n <- nrow(activity2)
+activity2$weekend <- 0
 
+while (i <= n) {
+  if(activity2$daytype[i] == 'Saturday' | activity2$daytype[i] == 'Sunday') 
+    {(activity2$weekend[i]<- TRUE)} 
+  else (activity2$weekend[i]<- FALSE)
+  i <- i + 1
+}
+```
 
+A panel plot allows a comparison of weekday and weekend behaviors.
 
-## Are there differences in activity patterns between weekdays and weekends?
+```{r}
+##panel plot comparing daily activity patterns on weekdays and weekends
+ggplot(activity2, aes(interval,steps)) + geom_point() + geom_smooth() + facet_wrap(~weekend, nrow=1)
+
+```
+
+The plots show that there is a difference in behavior between weekday and weekend days.  The weekdays shows a stronger peak in the morning, possibly due to getting ready for a job or school, while the weekends show a steadier activity level.  
+
